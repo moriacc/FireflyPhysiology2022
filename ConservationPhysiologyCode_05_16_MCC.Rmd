@@ -1,0 +1,888 @@
+---
+title: "Impact of season day and location of *P. pyralis* body metrics"
+Author: Edith Simpson, Moria Chambers & Owais Gilani
+date: "2024-03-18"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
+    code_folding: hide
+---
+
+**Overview**
+
+This file contains the code used to analyze firefly physiology data obtained in Summer 2022 from collections at three sites near Lewisburg. It examines the relationship between time in the season and location with each of the following metrics:
+  + mass
+  + elytral length
+  + pronotum lenght
+  + abdomen width
+  + abdomen length
+  + body condition (mass/elytral length)
+
+
+## Step 1: Ready the workspace
+
+```{r ready the workspace, message=FALSE}
+# #clear all inputs
+# rm(list = ls())
+# 
+# #Check for necessary packages
+# list.of.packages <- c("ggplot2", 
+#                       "tidyr",
+#                       "dplyr",
+#                       "Hmisc",
+#                       "qqplotr",
+#                       "ggthemes",
+#                       "fabricatr",
+#                       "gridExtra",
+#                       "grid",
+#                       "kableExtra",
+#                       "sjPlot",
+#                       "cowplot",
+#                       "ggpubr",
+#                       "patchwork",
+#                       "magick", #so you can use the savekable function
+#                       "webshot", #so you can use the savekable function
+#                       "lme4",
+#                       "RcppEigen")
+# 
+# #should install packages that you don't have
+# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+# if(length(new.packages)) install.packages(new.packages)
+#Load the necessary packages
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(Hmisc)
+library(qqplotr)
+library(ggthemes)
+library(fabricatr)
+library(gridExtra)
+library(grid)
+library(kableExtra)
+library(sjPlot)
+library(cowplot)
+library(ggpubr)
+library(patchwork)
+library(car)
+```
+
+## Step 2: Import the data & calculate physiological condition
+```{r import the data, results = 'hide'}
+#This imports the data from a CSV file and creates the data frame PrTC
+Adult_Final<-read.table("FireflyData_ConservationPhys.csv", header=TRUE, sep=",", dec=".",na.strings=".") 
+
+#This sets up the color palette using tableau20: https://jrnold.github.io/ggthemes/reference/tableau_color_pal.html
+site_colors <- c("USA: Montour Co, Bucknell Natural Area" = "#4E79A7", 
+                 "USA: Union Co, Bucknell Ropes Course" = "#E15759",
+                 "USA: Union Co, St. Mary's Park" = "#F28E2B")
+
+#Calculate Body Condition
+Adult_Final$BodyCondition<-(Adult_Final$Mass/Adult_Final$ElytralLength) 
+
+table(Adult_Final$SeasonDay)
+```
+
+## Step 3:  Are the distributions within each **Location** and **SeasonDay** normal? {.tabset}
+
+**Overall Conclusion**
+
+  + When doing a shapiro test on each collection individually, we rejected the null hypothesis that the body metrics are normally distributed on these days:
+    + **Mass**: season day 15, 29, 32,44 and 45
+    + **Elytral Length**: season day 38
+    + **Pronotum Length**: none
+    + **Abdomen Length**: season day 15, 17, 22, 36, 44
+    + **Abdomen Width**: season day 24, 38
+    + **Physiological Condition** season Day 15, 32 and 44
+
+  + However, after visual inspection of the qqplots we decided to proceed with  LOESS modeling.
+
+### Mass
+```{r Mass qq plots, fig.align="left"}
+#qq plots to assess normality
+qplot(sample=Mass, data=Adult_Final, color=Location) +
+  ggtitle("Season Day") +
+  facet_wrap(~SeasonDay) +
+  scale_color_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B")) +   
+  theme(legend.position = "none")
+
+#statistically test
+shapiro.table <- NULL
+for (day in levels(factor(Adult_Final$SeasonDay))){
+  #subset table
+  table.sub <- Adult_Final[Adult_Final$SeasonDay == day,]
+  test.result <- (shapiro.test(table.sub$Mass))
+  info <- data.frame(SeasonDay = day, W = round(test.result[1]$statistic, 2), p = round(test.result[2]$p.value, 2))
+  shapiro.table <- rbind(shapiro.table, info)
+}
+
+shapiro.table
+```
+
+### Elytral length
+```{r Elytral length qq plots, fig.align="left"}
+#qq plots to assess normality
+qplot(sample=ElytralLength, data=Adult_Final, color=Location) +
+  ggtitle("Season Day") +
+  facet_wrap(~SeasonDay) +
+  scale_color_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B")) +   
+  theme(legend.position = "none")
+
+#statistically test
+shapiro.table <- NULL
+for (day in levels(factor(Adult_Final$SeasonDay))){
+  #subset table
+  table.sub <- Adult_Final[Adult_Final$SeasonDay == day,]
+  test.result <- (shapiro.test(table.sub$ElytralLength))
+  info <- data.frame(SeasonDay = day, W = round(test.result[1]$statistic, 2), p = round(test.result[2]$p.value, 2))
+  shapiro.table <- rbind(shapiro.table, info)
+}
+
+shapiro.table
+```
+
+### Pronotum length
+```{r Pronotum length qq plots, fig.align="left"}
+#qq plots to assess normality
+qplot(sample=PronotumLength, data=Adult_Final, color=Location) +
+  ggtitle("Season Day") +
+  facet_wrap(~SeasonDay) +
+  scale_color_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B")) +   
+  theme(legend.position = "none")
+
+#statistically test
+shapiro.table <- NULL
+for (day in levels(factor(Adult_Final$SeasonDay))){
+  #subset table
+  table.sub <- Adult_Final[Adult_Final$SeasonDay == day,]
+  test.result <- (shapiro.test(table.sub$PronotumLength))
+  info <- data.frame(SeasonDay = day, W = round(test.result[1]$statistic, 2), p = round(test.result[2]$p.value, 2))
+  shapiro.table <- rbind(shapiro.table, info)
+}
+
+shapiro.table
+```
+
+### Abdomen length
+```{r Abdomen length qq plots, fig.align="left"}
+#qq plots to assess normality
+qplot(sample=AbdomenLength, data=Adult_Final, color=Location) +
+  ggtitle("Season Day") +
+  facet_wrap(~SeasonDay) +
+  scale_color_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B")) +   
+  theme(legend.position = "none")
+
+#statistically test
+shapiro.table <- NULL
+for (day in levels(factor(Adult_Final$SeasonDay))){
+  #subset table
+  table.sub <- Adult_Final[Adult_Final$SeasonDay == day,]
+  test.result <- (shapiro.test(table.sub$AbdomenLength))
+  info <- data.frame(SeasonDay = day, W = round(test.result[1]$statistic, 2), p = round(test.result[2]$p.value, 2))
+  shapiro.table <- rbind(shapiro.table, info)
+}
+
+shapiro.table
+```
+
+### Abdomen Width
+```{r Abdomen Width qq plots, fig.align="left"}
+#qq plots to assess normality
+qplot(sample=AbdomenWidth, data=Adult_Final, color=Location) +
+  ggtitle("Season Day") +
+  facet_wrap(~SeasonDay) +
+  scale_color_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B")) +   
+  theme(legend.position = "none")
+
+#statistically test
+shapiro.table <- NULL
+for (day in levels(factor(Adult_Final$SeasonDay))){
+  #subset table
+  table.sub <- Adult_Final[Adult_Final$SeasonDay == day,]
+  test.result <- (shapiro.test(table.sub$AbdomenWidth))
+  info <- data.frame(SeasonDay = day, W = round(test.result[1]$statistic, 2), p = round(test.result[2]$p.value, 2))
+  shapiro.table <- rbind(shapiro.table, info)
+}
+
+shapiro.table
+```
+
+### Body Condition
+```{r BodyCondition qq plots, fig.align="left"}
+#qq plots to assess normality
+qplot(sample=BodyCondition, data=Adult_Final, color=Location) +
+  ggtitle("Season Day") +
+  facet_wrap(~SeasonDay) +
+  scale_color_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B")) +   
+  theme(legend.position = "none")
+
+#statistically test
+shapiro.table <- NULL
+for (day in levels(factor(Adult_Final$SeasonDay))){
+  #subset table
+  table.sub <- Adult_Final[Adult_Final$SeasonDay == day,]
+  test.result <- (shapiro.test(table.sub$BodyCondition))
+  info <- data.frame(SeasonDay = day, W = round(test.result[1]$statistic, 2), p = round(test.result[2]$p.value, 2))
+  shapiro.table <- rbind(shapiro.table, info)
+}
+
+shapiro.table
+
+```
+
+## Step 4: Are metrics correlated?
+
+   + All metrics were positively corellated, but some had stronger correllation than others
+   + Decided to proceed with analysis of each metric separately
+
+```{r Scatterplot}
+pairs(Adult_Final[,7:12],pch = 19,lower.panel = NULL)
+cor(Adult_Final[,7:12],use="complete.obs")
+```
+
+## Step 5: Determine how season day and location affects physiology {.tabset}
+
+**Overall Conclusion**
+
+  + Based on LOESS models, all size metric s had a non-linear relationship with season day for at least one location, rending linear modeling not appropriate.
+  + For body condition, examination of the LOESS model revealed a relatively linear relationship across season day at all locations, and so we proceeded with linear modeling to assess the relative contribution of different factors.
+
+
+### Mass {.tabset}
+
+**Summary Table of Means by Location**
+```{r Mass by location table, message=FALSE}
+#generate tibble
+t<- Adult_Final %>% 
+  group_by(Location) %>% 
+  summarise(N=n(), mean_length=round(mean(Mass),3), SD = round(sd(Mass), 3))
+
+#generate nice looking table
+kbl(t, col.names = c("Location", "n", "Mean mass (g)", "SD"), align = "lccc") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+#### SeasonDay x Location LOESS
+```{r Graph Scatter SeasonDay and Mass, warning=FALSE}
+#png(file="Figure2A_mass.png", width = 3200, height = 1600, res=300)
+
+ggplot(Adult_Final, aes(x=SeasonDay, y=Mass*1000,shape=Location, color=Location,alpha=Location)) + 
+  geom_point(aes(shape=Location, color=Location), size=2.5)+  scale_shape_manual(values=c(0, 17, 4))+
+  scale_color_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+  scale_alpha_manual(values=c(1,.7,1))+
+  theme(legend.position="top")+ theme(plot.margin = unit(c(1, 2, 1, 2), "inches"))+
+ geom_smooth(se = TRUE, method=loess, aes(fill=Location, ), alpha = .5, size = 0, lwd=1) + theme_bw()+ theme_classic() +
+  xlab("Season day") + ylab("Mass (mg)") + scale_fill_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+theme(axis.title.x = element_text(size=24, face="bold"),
+axis.title.y = element_text(size=24, face="bold")) + theme(axis.text = element_text(size = 18))
+
+#dev.off ()
+```
+
+
+#### Other visualizations
+```{r Mass by site figures, message=FALSE, fig.align="center"}
+#generate labels for sites that include sample size
+site_labels = c(paste("BNA", " (n = ", t$N[1], ")", sep=""), 
+                paste0("FDBCC", " (n = ", t$N[2], ")"), 
+                paste0("StM",  " (n = ", t$N[3], ")"))
+   
+#generate text placeholder
+a <- ggplot(Adult_Final, aes(x=Mass, fill=Location,)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  scale_fill_manual(name = "Location", 
+                    #labels = site_labels, 
+                    values = site_colors)
+  
+legend.a <- cowplot::get_legend(a)
+
+#generate histogram
+b <- ggplot(Adult_Final, aes(x=Mass, fill=Location)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  xlab("Mass (mm)") +
+  ylab("N fireflies") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  scale_fill_manual(name = "Location", labels = site_labels, values = site_colors)+
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate violin plot
+c <- ggplot(Adult_Final, aes(x=Location, y=Mass, fill=Location,)) +
+  geom_violin(alpha = 0.9) +
+  theme_classic() +
+  ylab("Mass (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  geom_boxplot(width=0.2, alpha= 0.5, fill = "white") +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate boxplot
+d <- ggplot(Adult_Final, aes(x=Location, y=Mass, fill=Location,)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_jitter(size = 0.1)+
+  theme_classic() +
+  ylab("Mass (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+grid.arrange(legend.a,b,c,d, nrow=2)
+```
+
+### Elytral Length {.tabset}
+
+**Summary Table**
+```{r EL by location table, message=FALSE}
+#generate tibble
+t<- Adult_Final %>% 
+  group_by(Location) %>% 
+  summarise(N=n(), mean_length=round(mean(ElytralLength),2), SD = round(sd(ElytralLength), 2))
+
+#generate nice looking table
+kbl(t, col.names = c("Location", "n", "Mean elytron length (mm)", "SD"), align = "lccc") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+#### SeasonDay x Location  LOESS
+```{r Graph Scatter SeasonDay and Elytral length, warning=FALSE}
+
+#png(file="Figure1B_ElytralLength.png", width = 3200, height = 1600, res=300)
+
+
+ggplot(Adult_Final, aes(x=SeasonDay, y=ElytralLength,shape=Location, color=Location,alpha=Location)) + 
+  geom_point(aes(shape=Location, color=Location), size=2.5)+  scale_shape_manual(values=c(0, 17, 4))+
+  scale_color_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+  scale_alpha_manual(values=c(1,.7,1))+
+  theme(legend.position="top")+ theme(plot.margin = unit(c(1, 2, 1, 2), "inches"))+
+ geom_smooth(se = TRUE, method=loess, aes(fill=Location, ), alpha = .5, size = 0,lwd=1) + theme_bw()+ theme_classic() +
+  xlab("Season day") + ylab("Elytral length (mm)") + scale_fill_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+theme(axis.title.x = element_text(size=24, face="bold"),
+axis.title.y = element_text(size=24, face="bold")) + theme(axis.text = element_text(size = 18))
+
+#dev.off ()
+                 
+```
+
+#### Other visualizations
+```{r elytron length by site figures, message=FALSE, fig.align="center"}
+#generate labels for sites that include sample size
+site_labels = c(paste("BNA", " (n = ", t$N[1], ")", sep=""), 
+                paste0("FDBCC", " (n = ", t$N[2], ")"), 
+                paste0("StM",  " (n = ", t$N[3], ")"))
+   
+#generate text placeholder
+a <- ggplot(Adult_Final, aes(x=ElytralLength, fill=Location,)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  scale_fill_manual(name = "Location", 
+                    #labels = site_labels, 
+                    values = site_colors)
+  
+legend.a <- cowplot::get_legend(a)
+
+#generate histogram
+b <- ggplot(Adult_Final, aes(x=ElytralLength, fill=Location)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  xlab("Elytron length (mm)") +
+  ylab("N fireflies") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  scale_fill_manual(name = "Location", labels = site_labels, values = site_colors)+
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate violin plot
+c <- ggplot(Adult_Final, aes(x=Location, y=ElytralLength, fill=Location,)) +
+  geom_violin(alpha = 0.9) +
+  theme_classic() +
+  ylab("Elytron length (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  geom_boxplot(width=0.2, alpha= 0.5, fill = "white") +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate boxplot
+d <- ggplot(Adult_Final, aes(x=Location, y=ElytralLength, fill=Location,)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_jitter(size = 0.1)+
+  theme_classic() +
+  ylab("Elytron length (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+grid.arrange(legend.a,b,c,d, nrow=2)
+```
+
+### Pronotum Length {.tabset}
+
+**Summary Table**
+```{r PL by location table, message=FALSE}
+#generate tibble
+t<- Adult_Final %>% 
+  group_by(Location) %>% 
+  summarise(N=n(), mean_length=round(mean(PronotumLength),2), SD = round(sd(PronotumLength), 2))
+
+#generate nice looking table
+kbl(t, col.names = c("Location", "n", "Mean pronotum length (mm)", "SD"), align = "lccc") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+####  SeasonDay x Location LOESS
+```{r Graph Scatter SeasonDay and Pronotum length, warning=FALSE}
+
+#png(file="SFig2C_Pronotum.png", width = 3200, height = 1600, res=300)
+
+ggplot(Adult_Final, aes(x=SeasonDay, y=PronotumLength,shape=Location, color=Location,alpha=Location)) + 
+  geom_point(aes(shape=Location, color=Location), size=2.5)+  scale_shape_manual(values=c(0, 17, 4))+
+  scale_color_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+  scale_alpha_manual(values=c(1,.7,1))+
+  theme(legend.position="top")+ theme(plot.margin = unit(c(1, 2, 1, 2), "inches"))+
+ geom_smooth(se = TRUE, method=loess, aes(fill=Location, ), alpha = .5, size = 0, lwd=1) + theme_bw()+ theme_classic() +
+  xlab("Season day") + ylab("Pronotum length (mm)") + scale_fill_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+theme(axis.title.x = element_text(size=24, face="bold"),
+axis.title.y = element_text(size=24, face="bold")) + theme(axis.text = element_text(size = 18))
+
+#dev.off()
+                
+```
+
+#### Other visualizations
+```{r Pronotum length by site figures, message=FALSE, fig.align="center"}
+#generate labels for sites that include sample size
+site_labels = c(paste("BNA", " (n = ", t$N[1], ")", sep=""), 
+                paste0("FDBCC", " (n = ", t$N[2], ")"), 
+                paste0("StM",  " (n = ", t$N[3], ")"))
+   
+#generate text placeholder
+a <- ggplot(Adult_Final, aes(x=PronotumLength, fill=Location,)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  scale_fill_manual(name = "Location", 
+                    #labels = site_labels, 
+                    values = site_colors)
+  
+legend.a <- cowplot::get_legend(a)
+
+#generate histogram
+b <- ggplot(Adult_Final, aes(x=PronotumLength, fill=Location)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  xlab("Pronotum length (mm)") +
+  ylab("N fireflies") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  scale_fill_manual(name = "Location", labels = site_labels, values = site_colors)+
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate violin plot
+c <- ggplot(Adult_Final, aes(x=Location, y=PronotumLength, fill=Location,)) +
+  geom_violin(alpha = 0.9) +
+  theme_classic() +
+  ylab("Pronotum length (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  geom_boxplot(width=0.2, alpha= 0.5, fill = "white") +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate boxplot
+d <- ggplot(Adult_Final, aes(x=Location, y=PronotumLength, fill=Location,)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_jitter(size = 0.1)+
+  theme_classic() +
+  ylab("Pronotum length (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+grid.arrange(legend.a,b,c,d, nrow=2)
+```
+
+
+### Abdomen Length {.tabset}
+
+**Summary Table**
+```{r AL by location table, message=FALSE}
+#generate tibble
+t<- Adult_Final %>% 
+  group_by(Location) %>% 
+  summarise(N=n(), mean_length=round(mean(AbdomenLength, na.rm = TRUE),2), SD = round(sd(AbdomenLength, na.rm = TRUE), 2))
+
+
+#generate nice looking table
+kbl(t, col.names = c("Location", "n", "Mean abdomen length (mm)", "SD"), align = "lccc") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+#### SeasonDay x Location LOESS
+```{r Graph Scatter SeasonDay and Abdomen Length, warning=FALSE}
+#png(file="SFigA_AbdomenLength.png", width = 3200, height = 1600, res=300)
+ggplot(Adult_Final, aes(x=SeasonDay, y=AbdomenLength,shape=Location, color=Location,alpha=Location)) + 
+  geom_point(aes(shape=Location, color=Location), size=2.5)+  scale_shape_manual(values=c(0, 17, 4))+
+  scale_color_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+  scale_alpha_manual(values=c(1,.7,1))+
+  theme(legend.position="top")+ theme(plot.margin = unit(c(1, 2, 1, 2), "inches"))+
+ geom_smooth(se = TRUE, method=loess, aes(fill=Location, ), alpha = .5, size = 0,lwd=1) + theme_bw()+ theme_classic() +
+  xlab("Season day") + ylab("Abdomen length (mm)") + scale_fill_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+theme(axis.title.x = element_text(size=24, face="bold"),
+axis.title.y = element_text(size=24, face="bold")) + theme(axis.text = element_text(size = 18))
+
+#dev.off()
+
+```
+
+#### Other visualizations
+```{r Abdomen length by site figures, message=FALSE, fig.align="center"}
+#generate labels for sites that include sample size
+site_labels = c(paste("BNA", " (n = ", t$N[1], ")", sep=""), 
+                paste0("FDBCC", " (n = ", t$N[2], ")"), 
+                paste0("StM",  " (n = ", t$N[3], ")"))
+   
+#generate text placeholder
+a <- ggplot(Adult_Final, aes(x=AbdomenLength, fill=Location,)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  scale_fill_manual(name = "Location", 
+                    #labels = site_labels, 
+                    values = site_colors)
+  
+legend.a <- cowplot::get_legend(a)
+
+#generate histogram
+b <- ggplot(Adult_Final, aes(x=AbdomenLength, fill=Location)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  xlab("Abdomen length (mm)") +
+  ylab("N fireflies") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  scale_fill_manual(name = "Location", labels = site_labels, values = site_colors)+
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate violin plot
+c <- ggplot(Adult_Final, aes(x=Location, y=AbdomenLength, fill=Location,)) +
+  geom_violin(alpha = 0.9) +
+  theme_classic() +
+  ylab("Abdomen length (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  geom_boxplot(width=0.2, alpha= 0.5, fill = "white") +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate boxplot
+d <- ggplot(Adult_Final, aes(x=Location, y=AbdomenLength, fill=Location,)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_jitter(size = 0.1)+
+  theme_classic() +
+  ylab("Abdomen Length (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+grid.arrange(legend.a,b,c,d, nrow=2)
+```
+
+
+### Abdomen Width {.tabset}
+
+**Summary Table of Means**
+```{r AW by location table, message=FALSE}
+#generate tibble
+t<- Adult_Final %>% 
+  group_by(Location) %>% 
+  summarise(N=n(), mean_length=round(mean(AbdomenWidth, na.rm = TRUE),2), SD = round(sd(AbdomenWidth, na.rm = TRUE), 2))
+
+#generate nice looking table
+kbl(t, col.names = c("Location", "n", "Mean abdomen width (mm)", "SD"), align = "lccc") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+#### SeasonDay x Location LOESS
+```{r Graph Scatter SeasonDay and Abdomen Width, warning=FALSE}
+#png(file="SFig2B_AbdomenWidth.png", width = 3200, height = 1600, res=300)
+
+ggplot(Adult_Final, aes(x=SeasonDay, y=AbdomenWidth,shape=Location, color=Location,alpha=Location)) + 
+  geom_point(aes(shape=Location, color=Location), size=2.5)+  scale_shape_manual(values=c(0, 17, 4))+
+  scale_color_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+  scale_alpha_manual(values=c(1,.7,1))+
+  theme(legend.position="top")+ theme(plot.margin = unit(c(1, 2, 1, 2), "inches"))+
+ geom_smooth(se = TRUE, method=loess, aes(fill=Location, ), alpha = .5, size = 0,lwd=1) + theme_bw()+ theme_classic() +
+  xlab("Season day") + ylab("Abdomen width (mm)") + scale_fill_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+theme(axis.title.x = element_text(size=24, face="bold"),
+axis.title.y = element_text(size=24, face="bold")) + theme(axis.text = element_text(size = 18))
+
+#dev.off()
+
+```
+
+
+#### Other visualizations
+```{r Abdomen Width by site figures, message=FALSE, fig.align="center"}
+#generate labels for sites that include sample size
+site_labels = c(paste("BNA", " (n = ", t$N[1], ")", sep=""), 
+                paste0("FDBCC", " (n = ", t$N[2], ")"), 
+                paste0("StM",  " (n = ", t$N[3], ")"))
+   
+#generate text placeholder
+a <- ggplot(Adult_Final, aes(x=AbdomenWidth, fill=Location,)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  scale_fill_manual(name = "Location", 
+                    #labels = site_labels, 
+                    values = site_colors)
+  
+legend.a <- cowplot::get_legend(a)
+
+#generate histogram
+b <- ggplot(Adult_Final, aes(x=AbdomenWidth, fill=Location)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  xlab("Abdomen Width (mm)") +
+  ylab("N fireflies") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  scale_fill_manual(name = "Location", labels = site_labels, values = site_colors)+
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate violin plot
+c <- ggplot(Adult_Final, aes(x=Location, y=AbdomenWidth, fill=Location,)) +
+  geom_violin(alpha = 0.9) +
+  theme_classic() +
+  ylab("Abdomen Width (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  geom_boxplot(width=0.2, alpha= 0.5, fill = "white") +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate boxplot
+d <- ggplot(Adult_Final, aes(x=Location, y=AbdomenWidth, fill=Location,)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_jitter(size = 0.1)+
+  theme_classic() +
+  ylab("Abdomen Width (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+grid.arrange(legend.a,b,c,d, nrow=2)
+
+```
+
+### Body condition {.tabset}
+
+**Summary Table of Means by Location**
+```{r PC by location table, message=FALSE}
+#generate tibble
+t<- Adult_Final %>% 
+  group_by(Location) %>% 
+  summarise(N=n(), mean_length=round(mean(BodyCondition*1000),2), SD = round(sd(BodyCondition*1000), 2))
+
+#generate nice looking table
+kbl(t, col.names = c("Location", "n", "Mean Body Condition (mg/mm)", "SD"), align = "lccc") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+#### SeasonDay x Location LOESS
+```{r LOESS Body Condition, warning=FALSE}
+
+#png(file="SFig2D_PhysCondition_loess.png", width = 3200, height = 1600, res=300)
+
+ggplot(Adult_Final, aes(x=SeasonDay, y=BodyCondition*1000,shape=Location, color=Location,alpha=Location)) + 
+  geom_point(aes(shape=Location, color=Location), size=2.5)+  scale_shape_manual(values=c(0, 17, 4))+
+  scale_color_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+  scale_alpha_manual(values=c(1,.7,1))+
+  theme(legend.position="top")+ theme(plot.margin = unit(c(1, 2, 1, 2), "inches"))+
+ geom_smooth(se = TRUE, method=loess, aes(fill=Location, ), alpha = .5, size = 0,lwd=1) + theme_bw()+ theme_classic() +
+  xlab("Season day") + ylab("Body condition (mg/mm)") + scale_fill_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+theme(axis.title.x = element_text(size=24, face="bold"),
+axis.title.y = element_text(size=24, face="bold")) + theme(axis.text = element_text(size = 18))
+
+
+#dev.off()
+
+
+```
+
+#### ANOVA
+```{r  Body Condition anova type iii}
+lmBodyC <- lm(1000*BodyCondition~SeasonDay+Location+SeasonDay:Location, data = Adult_Final,contrasts=list(Location=contr.sum))
+lm.to.print<-lmBodyC
+
+summary(lmBodyC)
+Anova(lmBodyC,type=3)
+confint(lmBodyC)
+
+#names(summary(lmBodyC))
+vc<-as.matrix(summary(lmBodyC)$cov.unscaled)
+
+```
+
+
+*Location specific equations* for *Body Condition (mg/mm)*
+
+St Mary's Park
+$Y=$ `r round(lm.to.print$coefficients[1],6)` $+$ `r round( lm.to.print$coefficients[2],6)` $xSD$ 
+
+BNA
+$Y=$ `r round(lm.to.print$coefficients[1]+lm.to.print$coefficients[3],6)` $+$ `r round( lm.to.print$coefficients[2]+lm.to.print$coefficients[5],6)` $xSD$ 
+
+Ropes Course
+$Y=$ `r round(lm.to.print$coefficients[1]+lm.to.print$coefficients[4],6)` $+$ `r round( lm.to.print$coefficients[2]+lm.to.print$coefficients[6],6)` $xSD$
+
+
+#### SeasonDay x Location Linear
+```{r Graph Scatter SeasonDay and PC}
+
+#png(file="Figure2C_PhysCondition.png", width = 3200, height = 1600, res=300)
+
+ggplot(Adult_Final, aes(x=SeasonDay, y=BodyCondition*1000,shape=Location, color=Location,alpha=Location)) + 
+  geom_point(aes(shape=Location, color=Location), size=2.5)+  scale_shape_manual(values=c(0, 17, 4))+
+  scale_color_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+  scale_alpha_manual(values=c(1,.7,1))+
+  theme(legend.position="top")+ theme(plot.margin = unit(c(1, 2, 1, 2), "inches"))+
+ geom_smooth(se = TRUE, method=lm, aes(fill=Location, ), alpha = .5, size = 0,lwd=1) + theme_bw()+ theme_classic() +
+  xlab("Season day") + ylab("Body condition (mg/mm)") + scale_fill_manual(values=c("#0082BA","#FFA300","#838B8B"))+
+theme(axis.title.x = element_text(size=24, face="bold"),
+axis.title.y = element_text(size=24, face="bold")) + theme(axis.text = element_text(size = 18))
+
+
+#dev.off()
+                 
+```
+
+#### Other visualizations
+```{r PC by site figures, message=FALSE, fig.align="center"}
+#generate labels for sites that include sample size
+site_labels = c(paste("BNA", " (n = ", t$N[1], ")", sep=""), 
+                paste0("FDBCC", " (n = ", t$N[2], ")"), 
+                paste0("StM",  " (n = ", t$N[3], ")"))
+   
+#generate text placeholder
+a <- ggplot(Adult_Final, aes(x=BodyCondition, fill=Location,)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  scale_fill_manual(name = "Location", 
+                    #labels = site_labels, 
+                    values = site_colors)
+  
+legend.a <- cowplot::get_legend(a)
+
+#generate histogram
+b <- ggplot(Adult_Final, aes(x=BodyCondition, fill=Location)) +
+  geom_histogram(alpha= 0.5, position="identity") +
+  xlab("PhysCondition (mm)") +
+  ylab("N fireflies") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none") +
+  scale_fill_manual(name = "Location", labels = site_labels, values = site_colors)+
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate violin plot
+c <- ggplot(Adult_Final, aes(x=Location, y=BodyCondition, fill=Location,)) +
+  geom_violin(alpha = 0.9) +
+  theme_classic() +
+  ylab("PhysCondition (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  geom_boxplot(width=0.2, alpha= 0.5, fill = "white") +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+#generate boxplot
+d <- ggplot(Adult_Final, aes(x=Location, y=Mass, fill=Location,)) +
+  geom_boxplot(alpha = 0.9) +
+  geom_jitter(size = 0.1)+
+  theme_classic() +
+  ylab("PhysCondition (mm)") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "none", axis.text.x=element_blank(), axis.title.x=element_blank()) +
+  scale_fill_manual(values = site_colors) +
+  scale_fill_manual(name = "Location", labels = c("BNA", "FDBCC", "StM"), values = c("#4E79A7", "#E15759", "#F28E2B"))
+
+grid.arrange(legend.a,b,c,d, nrow=2)
+```
+
+
+
+#### Calculate confidence intervals
+  + Calculated the confidence intervals for both the first day of collection and at day 15 for each location.
+  + Also calculated the confidence intervals for the change seen over 10 days for each location
+  
+```{r confidence intervals, message=FALSE}
+# beta.hats
+b.h <- coef(lmBodyC) 
+
+# residual degrees of freedom:
+d.f <- lmBodyC$df.residual
+
+# variance covariance matrix of beta.hats
+vc <- as.matrix(vcov(lmBodyC))
+
+results.table <- matrix(NA, nr=3, ncol=10)
+colnames(results.table) <- c("Day of First col", "Init Body Cond", "Low 95% CI: Init BC", "Up 95% CI: Init BC", 
+                             "Body Cond Day 15", "Low CI: Day 15", "Up CI: Day 15", 
+                             "10 Day change", "Low CI: 10 Day change", "Up CI: 10 Day change")
+rownames(results.table) <- c("St. Mary's", "BNA", "FDBCC")
+
+day.first.col <- c(11, 17, 3)
+results.table[1:3, 1] <- day.first.col
+
+# Initial Body condition (on day of first collection), 95% CI
+## St. Mary's
+val <- c(1, day.first.col[1], 0, 0, 0, 0)
+results.table[1,2] <- sum(b.h*val)
+# 95% CI
+results.table[1,3:4] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+## BNA
+val <- c(1, day.first.col[2], 1, 0, day.first.col[2], 0)
+results.table[2,2] <- sum(b.h*val)
+# 95% CI
+results.table[2,3:4] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+## FDBCC
+val <- c(1, day.first.col[3], 0, 1, 0, day.first.col[3])
+results.table[3,2] <- sum(b.h*val)
+# 95% CI
+results.table[3,3:4] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+
+# Body condition on Day 15, 95% CI
+
+d <- 15  # using variable d instead of hard coding 15 in case you 
+         # want to change the day to 20 or something else later
+
+## St. Mary's
+val <- c(1, d, 0, 0, 0, 0)
+results.table[1,5] <- sum(b.h*val)
+# 95% CI
+results.table[1,6:7] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+## BNA
+val <- c(1, d, 1, 0, d, 0)
+results.table[2,5] <- sum(b.h*val)
+# 95% CI
+results.table[2,6:7] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+## FDBCC
+val <- c(1, d, 0, 1, 0, d)
+results.table[3,5] <- sum(b.h*val)
+# 95% CI
+results.table[3,6:7] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+
+# Change in body condition over 10 days, CI
+
+delta.d <- 10 # using variable isntead of hard coding 10
+## St. Mary's
+
+val <- c(0, delta.d, 0, 0, 0, 0)
+results.table[1,8] <- sum(b.h*val)
+# 95% CI
+results.table[1,9:10] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+
+# Sanity check: the following two outputs should match:
+sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+as.matrix(10*confint(lmBodyC))[2,]
+
+
+## BNA
+val <- c(0, delta.d, 0, 0, delta.d, 0)
+results.table[2,8] <- sum(b.h*val)
+# 95% CI
+results.table[2,9:10] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+## FDBCC
+val <- c(0, delta.d, 0, 0, 0, delta.d)
+results.table[3,8] <- sum(b.h*val)
+# 95% CI
+results.table[3,9:10] <- sum(b.h*val) + c(-1,1)*qt(0.975, d.f)*sqrt(sum(val%*%t(val) * vc))
+
+round(results.table, 2)
+
+```
