@@ -1,7 +1,7 @@
 ---
 title: "Impact of season day and location of *P. pyralis* body metrics"
-Author: Edith Simpson, Moria Chambers & Owais Gilani
-date: "2024-03-18"
+Authors: Edith Simpson, Moria Chambers & Owais Gilani
+date: "2024-05-22"
 output: 
   html_document:
     toc: TRUE
@@ -709,13 +709,13 @@ confint(lmBodyC)
 *Location specific equations* for *Body Condition (mg/mm)*
 
 St Mary's Park:
-$Y=$ `r round(lm.to.print$coefficients[1],6)`  `r round( lm.to.print$coefficients[2],6)` $SD$ 
+$Y=$ `r round(lm.to.print$coefficients[1],6)` `r round( lm.to.print$coefficients[2],6)`$SD$ 
 
-BNA
-$Y=$ `r round(lm.to.print$coefficients[1]+lm.to.print$coefficients[3],6)`  `r round( lm.to.print$coefficients[2]+lm.to.print$coefficients[5],6)` $SD$ 
+BNA:
+$Y=$ `r round(lm.to.print$coefficients[1]+lm.to.print$coefficients[3],6)` `r round( lm.to.print$coefficients[2]+lm.to.print$coefficients[5],6)`$SD$ 
 
-Ropes Course
-$Y=$ `r round(lm.to.print$coefficients[1]+lm.to.print$coefficients[4],6)`  `r round( lm.to.print$coefficients[2]+lm.to.print$coefficients[6],6)` $SD$
+Ropes Course:
+$Y=$ `r round(lm.to.print$coefficients[1]+lm.to.print$coefficients[4],6)` `r round( lm.to.print$coefficients[2]+lm.to.print$coefficients[6],6)`$SD$
 
 
 #### SeasonDay x Location Linear
